@@ -1,0 +1,150 @@
+- name: install docker and config 
+  hosts: _development
+  become: true
+  vars:
+    aws_region: us-east-1
+    ecr_registry: #ecr repo
+  tasks:
+    - name: update all packages
+      ansible_builtin.yum:
+          name: '*'
+          state: latest
+    - name: remove docker 
+      ansible.builtin.yum:
+        name: 
+          - docker
+          - docker-client
+          - docker-client-latest
+          - docker-common
+          - docker-latest
+          - docker-latest-logrotate
+          - docker-logrotate
+          - docker-engine
+        state: removed
+
+    - name: install yum utils
+      ansible.builtin.yum:
+         name: "{{ item }}"
+         state: latest
+      with_items:
+        - yum-utils
+        - device-mapper-persistent-data
+        - lvm2
+        - unzip
+
+    - name: add docker repo
+      ansible.builtin.get_url:
+         url: https://download.docker.com/linux/centos/docker-ce.repo
+         dest   : /etc/yum.repos.d/docker-ce.repo
+
+    - name: install docker
+      ansible.builtin.package:
+         name: docker-ce 
+         state: latest
+
+    - name: add user ec2-user to docker grp
+      ansible.builtin.user:
+         name: ec2-user
+         groups: docker
+         append: yes 
+
+    - name: start docker svc 
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
+        
+    - name: install aws cli 
+      ansible.builtin.get_url:
+         url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+         dest: /home/ec2-user/awscliv2.zip
+
+    - name: unzip zip file
+      ansible.builtin.unarchive:
+        src: /home/ec2-user/awscliv2.zip
+        dest: /usr/ec2-user 
+        remote_src: True 
+
+    - name: run # look 
+      ansible.builtin.command: 
+        args:
+          cmd: "./aws/install"
+          creates: /usr/local/bin/aws
+
+    - name: log in to aws ec2-user 
+      ansible.builtin.shell: |
+        export PATH=/usr/local/bin:$PATH
+        source ~/ .bash_profile
+        aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin {{ ecr_registry }}
+
+- name: postgres db config
+  hosts: _ansible_postgresql
+  become: true 
+  vars:
+    container_name: postgres_container
+    image_name: <ecr repository>
+  tasks:
+    - name: remove postgres container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent
+        force_kill: true
+    - name: remove postgres image 
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        state: absent
+    - name: launch postgres container
+    community.docker.docker_container:
+      name: "{{ container_name }}"
+      image: "{{ image_name }}"
+      state: started
+      ports: ["5432:5432"]
+      env: 
+       POSTGRES_PASSWORD: "Pp123456789"
+      volumes: 
+       - /db-data:/var/lib/postgresql/data
+
+- name: nodejs server configuration
+  hosts: _ansible_nodejs
+  become: true
+  vars:
+    container_name: nodejs_container
+    image_name: <ecr nodejs repo>
+  tasks:
+    - name: remove nodejs container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent
+        force_kill: yes
+    - name: remove nodejs image
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        state: absent
+    - name: launch nodejs_container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image_name }}"
+        state: started
+        ports: [ "5000:5000" ]
+
+- name: react server configuration
+  hosts: _ansible_react
+  becomes: yes
+  vars:
+    container_name: react_container
+    image_name: <ecr react repo>
+  tasks:
+    - name: remove react container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent 
+        force_kill: yes
+    - name: remove react image
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        state: absent
+    - name: launch react container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image_name }}"
+        ports: ["3000:3000"]
