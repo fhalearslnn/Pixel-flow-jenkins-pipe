@@ -5,13 +5,14 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "s3" {
+    bucket = "jenkins-project-haley-backend"           # Replace with your S3 bucket name
+    key    = "backend/jenkins-backend-jenkins.tfstate" # Replace with your desired file name
+    region = "us-west-1"                               # Replace with your AWS Region
+  }
 }
 
-backend "s3" {
-  bucket = "jenkins-project-haley-backend"           # Replace with your S3
-  key    = "backend/jenkins-backend-jenkins.tfstate" # Replace with your desired file name
-  region = "us-west-1"                               # Replace with your AWS Region
-}
 provider "aws" {
   region = "us-east-1" # Replace with your AWS Region
 }
@@ -19,10 +20,10 @@ provider "aws" {
 variable "tags" {
   default = ["postgres", "nodejs", "react"]
 }
+
 variable "user" {
   default = "haley"
 }
-
 
 // Define security group for PostgreSQL
 resource "aws_security_group" "prj-sec-grp" {
@@ -90,11 +91,13 @@ resource "aws_instance" "managed" {
 
 output "react_ip" {
   value = "http://${aws_instance.managed[2].public_ip}:3000/"
-
 }
+
 output "public_ip_node" {
   value = aws_instance.managed[1].public_ip
 }
+
 output "private_ip_postgres" {
   value = aws_instance.managed[0].private_ip
 }
+
