@@ -3,7 +3,7 @@
   become: true
   vars:
     aws_region: us-east-1
-    ecr_registry: #ecr repo
+    ecr_registry: 631395361224.dkr.ecr.us-east-1.amazonaws.com #ecr repo
   tasks:
     - name: update all packages
       ansible_builtin.yum:
@@ -82,7 +82,7 @@
   become: true 
   vars:
     container_name: postgres_container
-    image_name: <ecr repository>
+    image_name: 631395361224.dkr.ecr.us-east-1.amazonaws.com/haley-repo/haley-todo-app:postgres
   tasks:
     - name: remove postgres container
       community.docker.docker_container:
@@ -94,11 +94,12 @@
         name: "{{ image_name }}"
         state: absent
     - name: launch postgres container
-    community.docker.docker_container:
+      community.docker.docker_container:
       name: "{{ container_name }}"
       image: "{{ image_name }}"
       state: started
-      ports: ["5432:5432"]
+      ports: 
+        - "5432:5432"
       env: 
        POSTGRES_PASSWORD: "Pp123456789"
       volumes: 
@@ -109,7 +110,7 @@
   become: true
   vars:
     container_name: nodejs_container
-    image_name: <ecr nodejs repo>
+    image_name: 631395361224.dkr.ecr.us-east-1.amazonaws.com/haley-repo/haley-todo-app:nodejs
   tasks:
     - name: remove nodejs container
       community.docker.docker_container:
@@ -125,14 +126,15 @@
         name: "{{ container_name }}"
         image: "{{ image_name }}"
         state: started
-        ports: [ "5000:5000" ]
+        ports: 
+          - "5000:5000" 
 
 - name: react server configuration
   hosts: _ansible_react
   becomes: yes
   vars:
     container_name: react_container
-    image_name: <ecr react repo>
+    image_name: 631395361224.dkr.ecr.us-east-1.amazonaws.com/haley-repo/haley-todo-app:react
   tasks:
     - name: remove react container
       community.docker.docker_container:
@@ -147,4 +149,7 @@
       community.docker.docker_container:
         name: "{{ container_name }}"
         image: "{{ image_name }}"
-        ports: ["3000:3000"]
+        ports: 
+         - "3000:3000"
+
+

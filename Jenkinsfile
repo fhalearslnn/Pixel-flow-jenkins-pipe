@@ -1,18 +1,15 @@
-pipelien {
+pipeline{
     agent any
-    tools{
+    tools {
         ansible 'ansible'
         terraform 'terraform'
     }
-
     environment {
             AWS_DEFAULT_REGION = 'us-east-1'
             AWS_ACCOUNT_ID=sh(script:'export PATH="$PATH:/usr/local/bin" && aws sts get-caller-identity --query Account --output text', returnStdout:true).trim()
             ECR_REPOSITORY_ID="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-            APP_REPO_NAME = ""
-            APP_NAME = "unitodo"
+            APP_REPO_NAME = "haley-repo/haley-todo-app"  
     }
-
     stages{
         stage('Create Tf '){
             steps{
@@ -22,23 +19,23 @@ pipelien {
                 
             }
         }
-
         stage('ECR Repo') {
             steps{
                 echo 'Creating ECR repository'
                 sh '''
-                aws ecr create-repository --region $(AWS_REGION) --repository-name $ECR_REPOSITORY_NAME || \
+                aws ecr create-repository --region ${AWS_REGION} --repository-name ${ECR_REPOSITORY_NAME} || \
                 aws ecr create-repository \
-                   --repository-name $APP_REPO_NAME 
+                   --repository-name {$APP_REPO_NAME} 
                    --image-scanning-configuration scanOnPush=false \
-                   --region $(AWS_REGION)
-                   --image-tag-mutability MUTABLE 
-                ''',   
-
+                   --image-tag-mutability MUTABLE \
+                   --region ${AWS_REGION} 
+                   
+                '''   
+            }
         }
-        stage("Build Image"){
+        stage("Build Docker Images"){
             steps{
-                echo 'Building Docker image'
+                echo 'Building Docker images'
                 script {
                     env.NODE_IP = sh(script: 'terraform output -raw node_public_ip', returnStdout:true).trim()
                     env.DB_HOST = sh(script: 'terraform output -raw postgre_private_ip', returnStdout:true).trim()
@@ -85,13 +82,13 @@ pipelien {
                 sh 'ls -l'
                 sh 'ansible --version'
                 sh 'ansible-inventory --graph'
-                ansiblePlaybook credentialsId: '', disableHostKeyChecking: true, installation: 'ansible', inventory: 'inventory_aws_ec2.yml', playbook: 'docker_project.yml'
+                ansiblePlaybook credentialsId: 'firstkey', disableHostKeyChecking: true, installation: 'ansible', inventory: 'inventory_aws_ec2.yml', playbook: 'playbook_project.yml'
             }
         }
         stage('Destroy the infrastructure') {
             steps{
                 timeout(time:5, unit:'DAYS') {
-                    input message: 'accept terminate'
+                    input message: 'approve terminate'
                 }
                 echo "Terminate EC2 Instance..."
                 sh '''
@@ -105,5 +102,5 @@ pipelien {
             }
         }
     }
-    
-}
+
+} 
